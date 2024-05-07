@@ -6,16 +6,17 @@ You can use it directly running the this .py file after uncommenting bottom inst
 '''
 
 import os
+import struct
 
-def unpack_aez(input_file, verbose = False):
+def unpack_aez(input_file = 'res.aez', verbose = False):
     with open(input_file, 'rb') as f:
         while True:
             if verbose: print("\ncurnt adr: ",hex(f.tell()))
             path_size_byte = f.read(1)
             path_size = int.from_bytes(path_size_byte, byteorder='little', signed=False)
             if verbose: print("path size: ", path_size)
-            path = f.read(path_size).decode('utf-8')
-            if verbose: print("path size: ", path) 
+            file_path = f.read(path_size).decode('utf-8')
+            if verbose: print("path size: ", file_path) 
             file_size_bytes = f.read(4)
             file_size = int.from_bytes(file_size_bytes, byteorder='little', signed=False)
             if verbose: print("file size: ", file_size)
@@ -25,15 +26,14 @@ def unpack_aez(input_file, verbose = False):
                 break
 
             file_data = f.read(file_size)
-
-            path.replace("\\","/")
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            if verbose: print(path)
-            with open(path, 'wb') as out_f:
+            file_path = os.getcwd()+file_path
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            if verbose: print(file_path)
+            with open(file_path, 'wb') as out_f:
                 out_f.write(file_data)
     return None
     
-def pack_aez(input_dir, output_file, verbose=False):
+def pack_aez(input_dir = os.getcwd()+"/data", output_file = "new_res.aez", verbose=False):
     with open(output_file, 'wb') as f:
         for root, dirs, files in os.walk(input_dir):
             for file in files:
@@ -69,6 +69,12 @@ def pack_aez(input_dir, output_file, verbose=False):
 
 # Example uses:
 
-#unpack_aez('res.aez') #will unpack res.aez if it is in the same directory as the script
+#unpack_aez('res.aez') 
+#will unpack res.aez if it is in the same directory as the script
 
-#pack_aez('C:/folder', "new_res.aez") #will pack the files C:/data to a new archive
+
+#will pack the folder data in script's current directory to a new archive
+#pack_aez('data', "new_res.aez") 
+
+#excacly the same calling the function without arguments
+#pack_aez()
