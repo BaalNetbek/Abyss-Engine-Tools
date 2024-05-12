@@ -1,0 +1,14 @@
+fx_message_02.wav
+fx_boost_01.wav
+fx_boost_02.wav
+fx_explosion_01.wav
+fx_explosion_03.wav
+fx_menu_04.wav
+fx_message_03.wav
+fx_message_05.wav
+fx_mining_05.wav
+fx_thunder_01.wav
+wpn_nuke_02.wav
+wpn_rocket_02.wav
+wpn_rocket_03.wav
+wpn_rocket_04.wav
