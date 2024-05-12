@@ -1,6 +1,6 @@
 Automation for [versatile_audio_super_resolution](https://github.com/haoheliu/versatile_audio_super_resolution)
 
-Install requierments
+Install requierments (you need Python 3.9)
 ```
 pip install -r requirements.txt
 pip install audiosr==0.0.7
