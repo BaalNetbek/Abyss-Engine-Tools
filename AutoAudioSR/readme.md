@@ -1,9 +1,24 @@
-1. list_sounds.py
-2. audiosr_runner.bat
-3. sort_files.py
+Automation for [versatile_audio_super_resolution](https://github.com/haoheliu/versatile_audio_super_resolution)
 
-You can you can adjust audiosr arguments in audiosr_runner line 26, for example set -d cuda if you have nvidia gpu. 
-Set initial seed in seed.txt (not necessery)
+Install requierments
+'''
+pip install -r requirements.txt
+pip install audiosr==0.0.7
+'''
+Run script stages:
+To automaticaly update list of files process (sound/)
+'''
+list_sounds.py 
+'''
+As long as you wish, this generates infinitely:
+'''
+audiosr_runner.bat
+'''
+To finalize:
+'''
+out/sort_files.py
+'''
+You can you can adjust audiosr arguments in audiosr_runner line 26, for example set -d cuda if you have nVidia gpu. 
+Set initial seed in seed.txt (not necessery, it auto increments)
 
-audiosr_runner.bat works assuming that you have [AudioSR](https://github.com/haoheliu/versatile_audio_super_resolution) installed.
 
