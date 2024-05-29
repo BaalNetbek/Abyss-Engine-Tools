@@ -8,6 +8,7 @@ bpy.ops.import_mesh.aem(
     filter_glob="*.aem",
     files=[],
     scale_factor=0.01)
+
 bpy.ops.export_mesh.aem(
     filepath="",
     check_existing=True,
