@@ -1,3 +1,4 @@
+Everything comes without any warranty.
 # Abyss Engine Tools 
 I plan to publish here scripts I use to sculpt in AE.
 ## AEZtractor
