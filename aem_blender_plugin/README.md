@@ -1,10 +1,21 @@
+It is not fully tested but pretty much working
+
 Plugin support importing V4- and V5AEMs with UVs and normals but stripping animation and skeleton data.
 Also it supports exporting V5AEMs with automatic traingulation (no animations yet) and some quality of nolife features like console import/export.
-
-
 ```python
-bpy.ops.import_mesh.aem(filepath="", filter_glob="*.aem", files=[], scale_factor=0.01)
-bpy.ops.export_mesh.aem(filepath="", check_existing=True, filter_glob="*.aem", scale_factor=0.01, triangulate_method='BEAUTY', add_prefix="", add_suffix="", overwrite=False)
+bpy.ops.import_mesh.aem(
+    filepath="",
+    filter_glob="*.aem",
+    files=[],
+    scale_factor=0.01)
+bpy.ops.export_mesh.aem(
+    filepath="",
+    check_existing=True,
+    filter_glob="*.aem",
+    scale_factor=0.01,
+    triangulate_method='BEAUTY',
+    add_prefix="", add_suffix="",
+    overwrite=False)
 ```
 I had to keep indirect export becouse using direct Blender object to AEM export with function as one below gives broken results for custom meshes but correct for meshes that were initialy imported from AEM.
 Which I don't understand why is happening.   
