@@ -4,7 +4,8 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, FloatProperty, EnumProperty, BoolProperty, CollectionProperty
 from bpy.types import Operator
 import struct
-from numpy import float32, ushort
+from numpy import float32, short
+from enum import Enum
 
 
 bl_info = {
@@ -18,28 +19,75 @@ bl_info = {
     "category": "Import-Export",
 }
 
-SCALE_FACTOR = 0.01
+SCALE = 0.01
+NORMALS_SCALE = 3.0517578126e-05 # 1>>15
 
-def read_floats(file, count):
-    return [float32(struct.unpack("f", file.read(4))[0]) for _ in range(count)]
 
+AEMflags = {
+    "uvs": 2,  # these are Texture Coordinates if you will
+    "normals": 4,
+    "animations": 8,  # guess
+    "faces": 16
+}
+
+AEMVersion = {
+    "AEMesh":0,
+    "V2AEMesh":2,
+    "V3AEMesh":3,
+    "V4AEMesh":4,
+    "V5AEMesh":5
+}  
+
+def sign_check(c, cs):
+    if (cs==0xFFFF and c<0) or (cs==0x0 and c>= 0):
+        return 1
+    return 1
+
+def read_floats(file, count=1):
+    return [float32(struct.unpack('f', file.read(4))[0]) for _ in range(count)]
+    
+def read_float(file):
+    return float32(struct.unpack('f', file.read(4))[0])
+
+def read_shorts(file, count=1):
+    return [short(struct.unpack('h', file.read(2))[0]) for _ in range(count)]
+    
+def read_short(file):
+    return short(struct.unpack('h', file.read(2))[0])
+    
+  
+
+    
 def import_aem(file_path):
     file_aem = open(file_path, 'rb')
-    version = file_aem.read(5).decode("utf-8")
-    if version != "V5AEM" and version != "V4AEM":
-        file_aem.close()
-        print("Unsupported file AEM version.")
+    magic = "" #file_aem.read(5).decode("utf-8")
+    magic_len = 0
+    while magic[-4:] != "Mesh": 
+        magic += file_aem.read(1).decode("utf-8")
+        magic_len += 1
+        if magic_len>8:
+            #self.report ...
+            file_aem.close()
+            print("Unsupported .aem file. Error reading header")
+            return
+    file_aem.read(1)
+    flags = int.from_bytes(file_aem.read(1))
+    if flags & AEMflags["normals"] != 0:
+        normals_present = True
     else:
-        with open(file_path, 'rb') as file_aem:
-            
-            file_aem.seek(24)
-            v_num = struct.unpack("H", file_aem.read(2))[0]
-            file_aem.seek(v_num * 2 + 2, 1)
+        normals_present = False
+        
+    if AEMVersion[magic] in (4,5):
+        with file_aem:
+            file_aem.seek(0x18)
+            f_num = int(read_short(file_aem)/3)
+            faces = [(read_short(file_aem), read_short(file_aem), read_short(file_aem)) for _ in range(f_num)]
+            v_num = read_short(file_aem)
 
-            vertices = [(read_floats(file_aem, 1)[0] * SCALE_FACTOR, read_floats(file_aem, 1)[0] * SCALE_FACTOR, read_floats(file_aem, 1)[0] * SCALE_FACTOR) for _ in range(v_num)]
+            vertices = [(read_float(file_aem) * SCALE, read_float(file_aem) * SCALE, read_float(file_aem) * SCALE) for _ in range(v_num)]
             vertices = [(x, -z, y) for x, y, z in vertices]
-            uvs = [(read_floats(file_aem, 1)[0], read_floats(file_aem, 1)[0]) for _ in range(v_num)]
-            normals = [(read_floats(file_aem, 1)[0], read_floats(file_aem, 1)[0], read_floats(file_aem, 1)[0]) for _ in range(v_num)]
+            uvs = [(read_float(file_aem), read_float(file_aem)) for _ in range(v_num)]
+            normals = [(read_float(file_aem), read_float(file_aem), read_float(file_aem)) for _ in range(v_num)]
             normals = [(x, -z, y) for x, y, z in normals]
             
         obj_name = os.path.basename(file_path).split('.')[0]    
@@ -49,14 +97,71 @@ def import_aem(file_path):
         bpy.context.view_layer.objects.active = obj
         obj.select_set(True)
 
-        mesh.from_pydata(vertices, [], [(i, i + 1, i + 2) for i in range(0, v_num, 3)])
+        mesh.from_pydata(vertices, [], faces)
         mesh.update()
 
         uv_layer = mesh.uv_layers.new(name="UVMap")
         for i, uv in enumerate(uvs):
             uv_layer.data[i].uv = uv
+        
+        if normals_present == True:
+            mesh.normals_split_custom_set_from_vertices(normals)
+        
+    elif AEMVersion[magic] in (0,2):
+        with file_aem:
+            if AEMVersion[magic] == 2:
+            #    data_start_point = 0xA
+                vertex_cord_size = 6
+            if AEMVersion[magic] == 0:
+            #    data_start_point = 0x8
+                vertex_cord_size = 3
+            #file_aem.seek(data_start_point)    
+            f_num = int(read_short(file_aem)/3)
+            print(hex(f_num))
+            faces = [(read_short(file_aem), read_short(file_aem), read_short(file_aem)) for _ in range(f_num)]
+            v_num = read_short(file_aem)
+            v_block = [tuple(read_short(file_aem) for _ in range(vertex_cord_size)) for _ in range(v_num)]
+            uvs = [(struct.unpack("h", file_aem.read(2))[0], struct.unpack("h", file_aem.read(2))[0]) for _ in range(v_num)]
+            if normals_present == True:
+                normals_block = [(read_short(file_aem), read_short(file_aem), read_short(file_aem)) for _ in range(v_num)]
+                        
+        if magic == "V2AEMesh":
+            #if cord is not negative sign bytes are 0000 else they are FFFF
+            vertices = [(x*SCALE * sign_check(x, xs), -z*SCALE * sign_check(z, zs), y*SCALE * sign_check(y, ys)) for x, xs, y, ys, z, zs in v_block]                  
+        if magic == "AEMesh":
+            vertices = [(x*SCALE, -z*SCALE, y*SCALE) for x, y, z in v_block] 
+            
+        if normals_present == True:
+            normals = [(x*NORMALS_SCALE, -z*NORMALS_SCALE, y*NORMALS_SCALE) for x,y,z in normals_block]
+        
+        obj_name = os.path.basename(file_path).split('.')[0]    
+        mesh = bpy.data.meshes.new(name=obj_name + "_Mesh")
+        obj = bpy.data.objects.new(obj_name, mesh)
+        bpy.context.collection.objects.link(obj)
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        
+        mesh.from_pydata(vertices, [],faces)
+        mesh.update()
 
-        mesh.normals_split_custom_set_from_vertices(normals)
+        uv_layer = mesh.uv_layers.new(name="UVMap")
+        
+        for poly in mesh.polygons:
+            for loop_index in poly.loop_indices:
+                loop_vert_index = mesh.loops[loop_index].vertex_index
+                uv_layer.data[loop_index].uv = uvs[loop_vert_index]
+            
+        for uv_data in uv_layer.data:
+            uv_data.uv /= 4096
+        
+        if normals_present == True:
+            mesh.normals_split_custom_set_from_vertices(normals)
+        
+    else:
+        file_aem.close()
+        print("Unsupported file AEM version.")
+        return
+
 
 def convert_obj_to_aem(file_in,file_out):
     addon_directory = os.path.dirname(os.path.abspath(__file__))
@@ -105,9 +210,9 @@ def convert_obj_to_aem(file_in,file_out):
         file_aem.write(struct.pack("H", v_num))
         print('\n', '# Vertices', v_num)
         for i in range(v_num):
-            file_aem.write(struct.pack("f", v_x[v_id[i]] / SCALE_FACTOR))
-            file_aem.write(struct.pack("f", v_y[v_id[i]] / SCALE_FACTOR))
-            file_aem.write(struct.pack("f", v_z[v_id[i]] / SCALE_FACTOR))
+            file_aem.write(struct.pack("f", v_x[v_id[i]] / SCALE))
+            file_aem.write(struct.pack("f", v_y[v_id[i]] / SCALE))
+            file_aem.write(struct.pack("f", v_z[v_id[i]] / SCALE))
         print('\n', '# UVs', v_num)
         for i in range(v_num):
             file_aem.write(struct.pack("f", vt_x[vt_id[i]]))
@@ -141,13 +246,13 @@ class ImportAEM(Operator, ImportHelper):
     scale: FloatProperty(
         name="Scale Factor",
         description="Scale factor for imported objects",
-        default=SCALE_FACTOR,
+        default=SCALE,
         min=0.001, max=1.0
     )
 
     def execute(self, context):
-        global SCALE_FACTOR
-        SCALE_FACTOR = self.scale
+        global SCALE
+        SCALE = self.scale
         
         if len(self.filepath) < 1:
             print('No valid AEM provided.')
@@ -177,7 +282,7 @@ class ExportAEM(Operator, ExportHelper):
     scale: FloatProperty(
         name="Scale Factor (inverted)",
         description="Scale factor for exported objects - set the same as in import",
-        default=SCALE_FACTOR,
+        default=SCALE,
         min=0.001, max=1.0
     )
 
@@ -214,8 +319,8 @@ class ExportAEM(Operator, ExportHelper):
     )
 
     def execute(self, context):
-        global SCALE_FACTOR
-        SCALE_FACTOR = self.scale
+        global SCALE
+        SCALE = self.scale
 
         directory = os.path.dirname(self.filepath)
         
